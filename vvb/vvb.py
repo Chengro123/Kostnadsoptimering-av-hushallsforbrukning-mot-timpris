@@ -254,16 +254,3 @@ class DateTimeEncoder(json.JSONEncoder):
 
 
 
-
-# TODO Just nu värmer den 3 timmar hela tiden, men kanske bara värma 2 timmar ibland, så optimala timmar ändras 
-# TODO choose_run_times behöver ändras för att att hindra bugg, till exempel inte spotta ut nighttime
-# TODO Gör schedule
-# TODO Visa en graf över billigaste timmarna? 
-# TODO Vad händer när allting kraschar?
-# TODO När Nord Pool priser inte finns?
-# TODO Välja en bra tid när priserna är typ samma
-# TODO Göra en metod så han kan schemalägga varje dag? 
-# TODO När man han kört sista tiden alltså den runt afternoon, choose_run_times direkt 
-
-# TODO När home assistant är nere när den ska sättas på eller stängas av
-# TODO Att switch vvb är absolut så att den inte stängs av optimeringen
