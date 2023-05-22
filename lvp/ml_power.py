@@ -16,6 +16,8 @@ class calculatePower(hass.Hass, ad.ADBase):
         # Get how many kWh that were used last hour 
         self.pwr_id = 'sensor.shelly_em3_channel_a_energy'
         data = self.get_history(entity_id=self.pwr_id, start_time=now-datetime.timedelta(hours = 1))
+        # Check that the last used energy exist
+        if data[0][0]['state'] == 'unavailable' or  data[0][-1]['state'] == 'unavailable': return
         usedPower = float(data[0][-1]['state']) - float(data[0][0]['state'])
 
         # Get average inside temperature under last hour
