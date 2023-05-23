@@ -283,6 +283,8 @@ class lvpControl(hass.Hass, ad.ADBase):
             return times
 
         tid_for_4_degrees =  _hoursToCold(self.MAXTEMP, weather, self.MINTEMP, k)
+        # Om det är för varmt ute för att köra ska settemperaturerna vara mintemp hela dagen.
+        if len(tid_for_4_degrees)==0: return [self.MINTEMP]*len(current_price)
         tid_for_4_degrees += [tid_for_4_degrees[-1]]*(len(weather)-len(tid_for_4_degrees))
 
         #Värden för dagens utomhustemperaturer
