@@ -71,16 +71,21 @@ class lvpControl(hass.Hass, ad.ADBase):
         except:
             k = 0.04
 
+        self.settempfilename = "/config/appdaemon/logs/saved_setpoints.json"
         # Creates list of available Nordpool prices
         self.my_entity = self.get_entity(self.nordpool_id)
         actual_price = self.my_entity.attributes.today[:24]
-        if self.my_entity.attributes.tomorrow_valid: actual_price += self.my_entity.attributes.tomorrow
-        
+        # If the data is unavailable, load latest known values 
+        if len(actual_price)==0:
+            with open(self.settempfilename, "r") as logfile:
+                actual_price = json.load(logfile)["actual_price"]
+        else:
+            if self.my_entity.attributes.tomorrow_valid: actual_price += self.my_entity.attributes.tomorrow
+
+
         # If the "Reload all YAML-configuration"-button is pressed, the sensor for settemps is reset,
         # so the script should only reload it with its old values.
-        self.settempfilename = "/config/appdaemon/logs/saved_setpoints.json"
         self.WEATHER_ID = "sensor.weather_data_via_api"
-
         data_exist = False
         # To prevent crashes if self.WEATHER_ID is not in the namespace, we use the latest available data for the calculations
         if self.WEATHER_ID in self.get_state():
@@ -132,7 +137,8 @@ class lvpControl(hass.Hass, ad.ADBase):
         self.writeToFile(self.settempfilename,
                         {"settemps" : self.formatSettempsToSensor(settemps),
                         "runtimes"  : settempstofile,
-                        "weather"   : self.outsideTemp}
+                        "weather"   : self.outsideTemp,
+                        "actual_price" : actual_price}
                         )
 
         # Fire the method since the settemps could have been changed.
