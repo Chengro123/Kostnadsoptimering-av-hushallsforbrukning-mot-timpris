@@ -151,8 +151,8 @@ class VVBCode(hass.Hass, ad.ADBase):
         if start_hour2 < 10: start_hour2 = '0'+str(start_hour2)
         if end_hour2 < 10: end_hour2 = '0'+str(end_hour2)
         
-        self.set_state(self.vvb_button1, attributes={"friendly_name": f"{dag1} från kl. {start_hour1} till {end_hour1} kostar {round(cost1,2)} kr"})
-        self.set_state(self.vvb_button2, attributes={"friendly_name": f"{dag2} från kl. {start_hour2} till {end_hour2} kostar {round(cost2,2)} kr"})
+        self.set_state(self.vvb_button1, attributes={"friendly_name": f"{dag1} kl. {start_hour1}.00 till {end_hour1}.00 kostar {str(round(cost1,2)).replace('.',',')} kr"})
+        self.set_state(self.vvb_button2, attributes={"friendly_name": f"{dag2} kl. {start_hour2}.00 till {end_hour2}.00 kostar {str(round(cost2,2)).replace('.',',')} kr"})
         
         self.log("VVB info has been updated")
 
