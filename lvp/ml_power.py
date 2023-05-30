@@ -24,7 +24,9 @@ class calculatePower(hass.Hass, ad.ADBase):
         self.t_in_id = 'sensor.temp_average_inside'
         data = self.get_history(entity_id=self.t_in_id, start_time=now-datetime.timedelta(hours = 1))
         t_in = np.mean(np.array([float(hour['state']) for hour in data[0] if not hour['state'] in ('','unknown', 'unavailable')]))
-
+        # If the code could not fetch mean inside temperature, do not add this hour to the database
+        if np.isnan(t_in): return
+        
         self.settempfilename = "/config/appdaemon/logs/saved_setpoints.json"
         dateToday = datetime.datetime.now()
         # Open file where settemps and outside temp is saved
