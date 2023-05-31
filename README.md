@@ -1,4 +1,4 @@
-Instructions for applying the optimization code for your air heat pump and/or water heater
+This is the result of a bachelor's thesis at Chalmers University of Technology, with the aim of cost-optimizing the electricity consumption of an air heat pump and a water heater at an hourly rate. The implementation takes place in Home Assistant's subsystem AppDaemon. Instructions for applying the optimization code for your air heat pump and/or water heater follows below.
 
 # Configuration
 Insert the code in the folders lvp and vvb into the Appdaemon "apps"-folder in Home Assistant.
