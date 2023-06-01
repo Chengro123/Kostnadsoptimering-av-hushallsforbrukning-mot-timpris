@@ -20,9 +20,9 @@ class VVBCode(hass.Hass, ad.ADBase):
         self.VVB_SOC = 'sensor.vvb_soc' # Id of vvbs state of charge
         self.ENERGY_TO_FULL = 'sensor.vvb_energy_to_full' # Id of vvbs energy to full 
 
-        self.vvb_button1 = 'input_boolean.vvb_knapp1' # Buttons for the water heater window in HA
-        self.vvb_button2 = 'input_boolean.vvb_knapp2'
-        self.vvb_modell_button = 'input_boolean.vvb_modell' # Button for turning of the model 
+        self.vvb_button1 = 'input_boolean.vvb_button1' # Buttons for the water heater window in HA
+        self.vvb_button2 = 'input_boolean.vvb_button2'
+        self.vvb_modell_button = 'input_boolean.vvb_model' # Button for turning of the model 
         self.vvb_info1 = 'input_text.vvb_information1' 
         self.vvb_info2 = 'input_text.vvb_information2'
 
