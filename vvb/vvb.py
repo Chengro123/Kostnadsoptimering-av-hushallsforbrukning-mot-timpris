@@ -14,7 +14,7 @@ class VVBCode(hass.Hass, ad.ADBase):
 
         self.NORDPOOL_ID = 'sensor.nordpool_kwh_se3_sek_3_10_025' #  
 
-        self.POWER = 3 # 3 kWh
+        self.POWER = 3 # kW
         self.VVB = 'switch.varmvattenberedare' # ID of the real water heater
         self.VVB_TEST = 'input_number.vvb_test' # ID of the fake water heater, for testing
         self.VVB_SOC = 'sensor.vvb_soc' # Id of vvbs state of charge

@@ -48,6 +48,9 @@ class lvpControl(hass.Hass, ad.ADBase):
         self.main() # Uncomment to run main
 
     def main(self,a="a",b="b",c="c",d="d",e="e"): # Sometimes main gets called with 6 (unnecessary) inputs
+        self.settempfilename = "/config/appdaemon/logs/saved_setpoints.json"
+        self.WEATHER_ID = "sensor.weather_data_via_api"
+
         # Defines comfort requirements, primarily from the sensors
         try:
             # Has to add str() after a state-listener is set on the id
@@ -71,7 +74,7 @@ class lvpControl(hass.Hass, ad.ADBase):
         except:
             k = 0.04
 
-        self.settempfilename = "/config/appdaemon/logs/saved_setpoints.json"
+        
         # Creates list of available Nordpool prices
         self.my_entity = self.get_entity(self.nordpool_id)
         actual_price = self.my_entity.attributes.today[:24]
@@ -85,7 +88,6 @@ class lvpControl(hass.Hass, ad.ADBase):
 
         # If the "Reload all YAML-configuration"-button is pressed, the sensor for settemps is reset,
         # so the script should only reload it with its old values.
-        self.WEATHER_ID = "sensor.weather_data_via_api"
         data_exist = False
         # To prevent crashes if self.WEATHER_ID is not in the namespace, we use the latest available data for the calculations
         if self.WEATHER_ID in self.get_state():
