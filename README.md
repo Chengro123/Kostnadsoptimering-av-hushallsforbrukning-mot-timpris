@@ -9,6 +9,9 @@ Please note that there might be some swedish left from the original installation
 - Temperature sensors to measure the water temperature on different height in the tank. We used four sensors and put them against the outside of the tank by drilling holes in the surrounding styrofoam.
 ## What's needed for the air heat pump?
 - Some way to control the set temperature for the AHP, we used the swedish invention [Huskoll](https://huskoll.se/).
+## Extras than can be used to improve the air heat pump optimization
+- Temperaute sensors inside
+- Ampere meter to measure the used energy for the air heat pump
 
 # Installation
 To increase readability and ease of use, we recommend to put all sensor-, input number- and script-configurations in separate files by adding
@@ -161,16 +164,30 @@ and two sensors
 ```
 has to be created, together with the file (```/config/appdaemon/logs/saved_setpoints.json```) to store needed data. The main purpose of this is to avoid crashes if data can not be read from its original source.
 
-## Temperature sensors for the air heat pump
+## Temperature sensors and ampere meter for the air heat pump
 To include temperature sensors in the optimization (recommended), used to measure the inside temperature (preferably some distance away from the air heat pump), follow the steps below.
-1. ESPHome
-2. YAML för dem
-3. YAML för medelvärde
-4. MLPOWER
+
+We used ESPHome to set up the four sensors and gave them names ```sensor.testsensor_i``` for ```i = 1,2,3,4```. From these a YAML-sensor with their mean value was set up as
+```yaml
+- platform: template
+  sensors:
+    temp_average_inside:
+      friendly_name: Temp average inside
+      value_template: >-
+        {% set temp_average_inside = (
+        states('sensor.testsensor_1') | float +
+        states('sensor.testsensor_2') | float +
+        states('sensor.testsensor_3') | float +
+        states('sensor.testsensor_4') | float ) / 4
+        %}
+        {{temp_average_inside}}
+      unit_of_measurement: "deg C"
+```
+To improve the estimated energy for the air heat pump, another code saves the mean used power each hour in a file ```/config/appdaemon/logs/db_settemps.json```. A barebone version of this file lies in the folder ```lvp```
+
 
 # Configuration
-Insert the code in the folders lvp and vvb into the Appdaemon "apps"-folder in Home Assistant. 
-Configure the AppDaemon "apps"-file as:
+Insert the code in the folders lvp and vvb into the Appdaemon "apps"-folder in Home Assistant, except ```db_settemps.json```, which should lie in the ```logs```-folder (```/config/appdaemon/logs/db_settemps.json```). Configure the AppDaemon "apps"-file as:
 ```yaml
 lvp_controller:
   module: controlLVP
@@ -205,5 +222,7 @@ lvp_hwid: '[yourkey]'
 
 For the water heater, change the variable ```python self.POWER = 3 # kW ``` to correspond to the power your water heater has.
 
+If the ```ml_power.py```-program is used, change ```self.pwr_id = 'sensor.shelly_em3_channel_a_energy'``` to correspond to your sensor that shows used energy for the air heat pump.
+self.pwr_id = 'sensor.shelly_em3_channel_a_energy'
 
 To fully make the automation work, data from Nord Pool, inside temperature and weather forecast will be needed. We used WeatherAPI and a REST-sensor to import the forecast to HA. The reason to use a REST-sensor instead of e.g. making an API-call in the code is to reduce calls if the code is ran often.
