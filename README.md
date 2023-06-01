@@ -31,7 +31,6 @@ Configure the Nord Pool integration and add it to sensors.yaml as
 remember to change the parameters for your location and preferred currency.
 
 ## Water heater
-### Home Assistant inputs, outputs and files
 In input_numbers.yaml add
 ```yaml
 vvb_test:
@@ -77,7 +76,7 @@ and in sensors.yaml add
         {{ 
         (((max(0,(60-t1)) + max(0,(56-t2)) + max(0,(54-t3)) + max(0,(58-t4))) / 4)*300*4.18/3600)
         }}
-      unit_of_measurement: "kWh" # Första versionen  ((((55-t1) + (50-t2) + (48-t3) + (49-t4)) / 4)*270*4.18/3600) # Andra versionen ((((55-t1) + (51-t2) + (49-t3) + (51-t4)) / 4)*300*4.18/3600) # Tredje versionen ((((60-t1) + (58-t2) + (55-t3) + (58-t4)) / 4)*300*4.18/3600)
+      unit_of_measurement: "kWh"
     vvb_soc:
       friendly_name: VVB SOC
       value_template: >-
@@ -105,6 +104,69 @@ input_boolean:
 Lastly create a .json-file named ```saved_vvb_times.json``` in the logs-folder (full path ```/config/appdaemon/logs/saved_vvb_times.json```). This is where the runtimes for the water heater are saved.
 
 ## Air heat pump
+Two input booleans
+```yaml
+input_boolean:
+  toggle_lvp_optimizer:
+    initial: true
+  toggle_include_comftemp:
+    initial: true
+```
+four input numbers
+```yaml
+mintemp:
+   name: Minimum comfort temperature during expensive electricity prices
+   initial: 18
+   step: 1
+   min: 8 # Minimum value that Huskoll allows
+   max: 32 # Maximum value that Huskoll allows
+maxtemp:
+   name: Highest comfort temperature during cheap electricity prices
+   initial: 23
+   step: 1
+   min: 8 # Minimum value that Huskoll allows
+   max: 32 # Maximum value that Huskoll allows
+comforttemp:
+   name: Standard comfort temperature during normal electricity prices
+   initial: 20
+   step: 1
+   min: 8 # Minimum value that Huskoll allows
+   max: 32 # Maximum value that Huskoll allows
+cooling_constant:
+   name: Cooldown constant
+   initial: 0.04
+   steps: 0.01
+   min: 0.01
+   max: 0.1
+```
+and two sensors
+```yaml
+- platform: rest
+  resource: !secret weatherapirestsensorkey
+  method: POST
+  name: "Weather data via API"
+  scan_interval: !secret scanInt
+  value_template: "1" # dummy value, not used; avoids the "State max length is 255 characters" error
+  json_attributes:
+    - "location"
+    - "current"
+    - "forecast"
+  force_update: True
+- platform: template
+  sensors:
+    setpoints:
+      friendly_name: The air heat pump's set temperatures
+      value_template: "."
+
+```
+has to be created, together with the file (```/config/appdaemon/logs/saved_setpoints.json```) to store needed data. The main purpose of this is to avoid crashes if data can not be read from its original source.
+
+## Temperature sensors for the air heat pump
+To include temperature sensors in the optimization (recommended), used to measure the inside temperature (preferably some distance away from the air heat pump), follow the steps below.
+1. ESPHome
+2. YAML för dem
+3. YAML för medelvärde
+4. MLPOWER
 
 # Configuration
 Insert the code in the folders lvp and vvb into the Appdaemon "apps"-folder in Home Assistant. 
