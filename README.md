@@ -8,7 +8,7 @@ Please note that there might be some swedish left from the original installation
 - A smart plug/some way to control the on/off state of the heater
 - Temperature sensors to measure the water temperature on different height in the tank. We used four sensors and put them against the outside of the tank by drilling holes in the surrounding styrofoam.
 ## What's needed for the air heat pump?
-- Some way to control the set temperature for the AHP, we used the swedish invention [Huskoll](https://huskoll.se/).
+- Some way to control the set temperature for the air heat pump, we used the swedish invention [Huskoll](https://huskoll.se/).
 ## Extras than can be used to improve the air heat pump optimization
 - Temperaute sensors inside
 - Ampere meter to measure the used energy for the air heat pump
