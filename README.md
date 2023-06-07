@@ -1,20 +1,20 @@
 This is the result of a bachelor's thesis at Chalmers University of Technology, with the aim of cost-optimizing the electricity consumption of an air heat pump and a water heater against an hourly rate. The implementation takes place in Home Assistant's subsystem AppDaemon. Instructions for applying the optimization code for your air heat pump and/or water heater follows below.
 
-Please note that there might be some swedish left from the original installation. We hope to translate everything to english soon, but untill then two common abbreviations used are LVP for air heat pump or "luftvärmepump" and VVB for water heater or "varmvattenberedare".
+Please note that there might be some swedish left from the original installation. We hope to have everything translated to english soon, but untill then two common abbreviations used are LVP for air heat pump or "luftvärmepump" and VVB for water heater or "varmvattenberedare".
 
 # What's needed to start?
 - A computer/single-board computer (e.g. Raspberry Pi) to run Home Assistant OS with access to the internet.
 ## What's needed for the water heater?
-- A smart plug/some way to control the on/off state of the heater
+- A smart plug/some way to control the on/off state of the heater.
 - Temperature sensors to measure the water temperature on different height in the tank. We used four sensors and put them against the outside of the tank by drilling holes in the surrounding styrofoam.
 ## What's needed for the air heat pump?
 - Some way to control the set temperature for the air heat pump, we used the swedish invention [Huskoll](https://huskoll.se/).
 ## Extras than can be used to improve the air heat pump optimization
-- Temperaute sensors inside
-- Ampere meter to measure the used energy for the air heat pump
+- Sensors for inside temperature.
+- Ampere meter to measure the used energy for the air heat pump.
 
 # Installation
-To increase readability and ease of use, we recommend to put all sensor-, input number- and script-configurations in separate files by adding
+To increase readability and ease of use, we recommend to put all sensor-, input number- and script-configurations in separate files by adding e.g.
 ```yaml
 sensor: !include sensors.yaml
 input_number: !include input_numbers.yaml
@@ -22,7 +22,7 @@ input_number: !include input_numbers.yaml
 in configuration.yaml.
 
 ## Nord Pool
-Configure the Nord Pool integration and add it to sensors.yaml as
+Configure the Home Assistant's Nord Pool integration and add it to sensors.yaml as
 ```yaml
 - platform: nordpool
   VAT: true
