@@ -229,8 +229,8 @@ secrets: /config/secrets.yaml
 ```
 to the top of `appdaemon.yaml` and in `secrets.yaml` add
 ```yaml
-lvp_token: '[yourtoken]'
-lvp_hwid: '[yourkey]'
+lvp_token: 'YOURTOKEN'
+lvp_hwid: 'YOURKEY'
 ```
 
 For the water heater, change the variable ```python self.POWER = 3 # kW ``` to correspond to the power your water heater has.
