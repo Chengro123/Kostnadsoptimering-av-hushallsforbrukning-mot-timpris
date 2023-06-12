@@ -19,10 +19,10 @@ To increase readability and ease of use, we recommend to put all sensor-, input 
 sensor: !include sensors.yaml
 input_number: !include input_numbers.yaml
 ```
-in configuration.yaml.
+in `configuration.yaml`.
 
 ## Nord Pool
-Configure the Home Assistant's Nord Pool integration and add it to sensors.yaml as
+Configure the Home Assistant's Nord Pool integration and add it to `sensors.yaml` as
 ```yaml
 - platform: nordpool
   VAT: true
@@ -34,14 +34,14 @@ Configure the Home Assistant's Nord Pool integration and add it to sensors.yaml 
 remember to change the parameters for your location and preferred currency.
 
 ## Water heater
-In input_numbers.yaml add
+In `input_numbers.yaml` add
 ```yaml
 vvb_test:
   name: vvb status for testing 
   min: 0
   max: 1
 ```
-and in sensors.yaml add
+and in `sensors.yaml` add
 ```yaml
 - platform: template
   sensors:
@@ -164,6 +164,30 @@ and two sensors
 ```
 has to be created, together with the file (```/config/appdaemon/logs/saved_setpoints.json```) to store needed data. The main purpose of this is to avoid crashes if data can not be read from its original source.
 
+To fully make the automation work, a weather forecast will also be needed. This is used to approximate how long it takes the house to reach minimum temperature. Now only the outside temperature is taken into consideration by using [Newton's law of cooling](https://en.wikipedia.org/wiki/Newton%27s_law_of_cooling), but this can be further developed to include other properties that change the cooling of the house, such as humidity, wind speed and cloudiness.
+We used [WeatherAPI](https://www.weatherapi.com/) and a [RESTful Sensor](https://www.home-assistant.io/integrations/sensor.rest/) to import the forecast to HA. The reason to use a REST sensor instead of e.g. making an API-call in the code is to reduce calls if the code is ran often.
+
+```yaml
+- platform: rest
+  resource: !secret weatherapiresource
+  method: POST
+  name: "Weather data via API"
+  scan_interval: !secret scanInt
+  value_template: "1" # dummy value, not used; avoids the "State max length is 255 characters" error
+  json_attributes:
+    - "location"
+    - "current"
+    - "forecast"
+  force_update: True
+```
+
+To make this work, at https://www.weatherapi.com/my/fields.aspx, add the required fields (in our version only "temp_c" under "Hour" has to be marked) and in `secrets.yaml` add the resource and the scan interval (how often the sensor should do an API-call to recieve new data) as
+```yaml
+scanInt: 900
+weatherapiresource: https://api.weatherapi.com/v1/forecast.json?key=YOURKEY&q=YOURCITY&days=3&aqi=no&alerts=no
+```
+We use 900 s as scan interval (every quarter), which correspond to 96 calls per day and ~3000 calls per month (1 M free calls). The resource can either be generated in WeatherAPI's "API Explorer" or by filling in your key and location in the URL above.
+
 ## Temperature sensors and ampere meter for the air heat pump
 To include temperature sensors in the optimization (recommended), used to measure the inside temperature (preferably some distance away from the air heat pump), follow the steps below.
 
@@ -183,7 +207,7 @@ We used ESPHome to set up the four sensors and gave them names ```sensor.testsen
         {{temp_average_inside}}
       unit_of_measurement: "deg C"
 ```
-To improve the estimated energy for the air heat pump, another code saves the mean used power each hour in a file ```/config/appdaemon/logs/db_settemps.json```. A barebone version of this file lies in the folder ```lvp```
+To improve the estimated energy for the air heat pump, another code saves the mean used power each hour in a file ```/config/appdaemon/logs/db_settemps.json```. A barebone version of this file lies in the folder ```lvp```.
 
 
 # Configuration
@@ -204,7 +228,7 @@ mlpower:
   class: calculatePower
   log: mlpower_log
 ```
-Remeber to create the log-files and configure them in appdaemon.yaml as e.g.
+Remeber to create the log-files and configure them in `appdaemon.yaml` as e.g.
 ```yaml
   lvp_control_log:
     name: LVPStyrLogg
@@ -214,7 +238,7 @@ If secrets is not enabled, add
 ```yaml
 secrets: /config/secrets.yaml
 ```
-to the top of appdaemon.yaml and in secrets.yaml add
+to the top of `appdaemon.yaml` and in `secrets.yaml` add
 ```yaml
 lvp_token: '[yourtoken]'
 lvp_hwid: '[yourkey]'
@@ -223,6 +247,3 @@ lvp_hwid: '[yourkey]'
 For the water heater, change the variable ```python self.POWER = 3 # kW ``` to correspond to the power your water heater has.
 
 If the ```ml_power.py```-program is used, change ```self.pwr_id = 'sensor.shelly_em3_channel_a_energy'``` to correspond to your sensor that shows used energy for the air heat pump.
-self.pwr_id = 'sensor.shelly_em3_channel_a_energy'
-
-To fully make the automation work, data from Nord Pool, inside temperature and weather forecast will be needed. We used WeatherAPI and a REST-sensor to import the forecast to HA. The reason to use a REST-sensor instead of e.g. making an API-call in the code is to reduce calls if the code is ran often.
