@@ -142,19 +142,8 @@ cooling_constant:
    min: 0.01
    max: 0.1
 ```
-and two sensors
+and one sensor
 ```yaml
-- platform: rest
-  resource: !secret weatherapirestsensorkey
-  method: POST
-  name: "Weather data via API"
-  scan_interval: !secret scanInt
-  value_template: "1" # dummy value, not used; avoids the "State max length is 255 characters" error
-  json_attributes:
-    - "location"
-    - "current"
-    - "forecast"
-  force_update: True
 - platform: template
   sensors:
     setpoints:
