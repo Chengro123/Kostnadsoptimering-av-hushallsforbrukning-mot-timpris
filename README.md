@@ -170,12 +170,12 @@ We used [WeatherAPI](https://www.weatherapi.com/) and a [RESTful Sensor](https:/
   force_update: True
 ```
 
-To make this work, at https://www.weatherapi.com/my/fields.aspx, add the required fields (in our version only "temp_c" under "Hour" has to be marked) and in `secrets.yaml` add the resource and the scan interval (how often the sensor should do an API-call to recieve new data) as
+To make this work, add the required fields (in our version only "temp_c" under "Hour" has to be marked) on https://www.weatherapi.com/my/fields.aspx and in `secrets.yaml`, add the resource and the scan interval (how often the sensor should do an API-call to recieve new data) as
 ```yaml
 scanInt: 900
 weatherapiresource: https://api.weatherapi.com/v1/forecast.json?key=YOURKEY&q=YOURCITY&days=3&aqi=no&alerts=no
 ```
-We use 900 s as scan interval (every quarter), which correspond to 96 calls per day and ~3000 calls per month (1 M free calls). The resource can either be generated in WeatherAPI's "API Explorer" or by filling in your key and location in the URL above.
+We use 900 s as scan interval (every quarter), which correspond to 96 calls per day and ~3000 calls per month (1 M free calls). The resource can either be generated in WeatherAPI's [API Explorer](https://www.weatherapi.com/api-explorer.aspx) or by filling in your key and location in the URL above.
 
 ## Temperature sensors and ampere meter for the air heat pump
 To include temperature sensors in the optimization (recommended), used to measure the inside temperature (preferably some distance away from the air heat pump), follow the steps below.
