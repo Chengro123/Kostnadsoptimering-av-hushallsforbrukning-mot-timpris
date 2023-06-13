@@ -1,6 +1,6 @@
 This is the result of a bachelor's thesis at Chalmers University of Technology, with the aim of cost-optimizing the electricity consumption of an air heat pump and a water heater against an hourly rate. The implementation takes place in Home Assistant's subsystem AppDaemon. Instructions for applying the optimization code for your air heat pump and/or water heater follows below.
 
-Please note that there might be some swedish left from the original installation. We hope to have everything translated to english soon, but untill then two common abbreviations used are LVP for air heat pump or "luftvärmepump" and VVB for water heater or "varmvattenberedare".
+Please note that there might be some swedish left from the original installation. We hope to have everything translated to english soon, but until then two common abbreviations used are LVP for air heat pump or "luftvärmepump" and VVB for water heater or "varmvattenberedare". This how-to page does not go into how Home Assistant or AppDaemon works, but only aims to explain the installation and configuration steps to get the optimizations working. Also note that your products may not be compatible with the methods we use, e.g. Huskoll (more on this later) for controlling the air heat pump. Hopefully you can then find a similar method that can be easily integrated into the optimization.
 
 # What's needed to start?
 - A computer/single-board computer (e.g. Raspberry Pi) to run Home Assistant OS with access to the internet.
@@ -236,3 +236,5 @@ lvp_hwid: 'YOURKEY'
 For the water heater, change the variable ```python self.POWER = 3 # kW ``` to correspond to the power your water heater has.
 
 If the ```ml_power.py```-program is used, change ```self.pwr_id = 'sensor.shelly_em3_channel_a_energy'``` to correspond to your sensor that shows used energy for the air heat pump.
+
+As wrote above, we use Huskoll to control the air heat pump. If you use another program, you will have to change the `set_lvp_state()` and `get_lvp_state()` - functions in `controlLVP.py`. Another change in this file are the [COP-values](https://en.wikipedia.org/wiki/Coefficient_of_performance) for the pump. Check with your manufacturer for your numbers, you should have two lists of values; one list with temperatures, and one list with the COP-values corresponding to the temperatures. These will then be interpolated by the code to adjust the electricity price with the efficiency of the air source heat pump for that day's outdoor temperature.
