@@ -58,7 +58,7 @@ class VVBCode(hass.Hass, ad.ADBase):
         self.run_hourly(self.vvb_info, datetime.time(hour=19, minute=0, second=0))
 
         # Check if Nord Pool API returned prices for the next day, if not we use a default time to run vvb
-        self.run_daily(self.check_nordpool, datetime.time(hour=1, minute=5, second=0))
+        self.run_daily(self.check_nordpool, datetime.time(hour=23, minute=5, second=0))
 
         # Turn on the first button and off the second button 
         if self.get_state(self.vvb_modell_button) == 'on':
