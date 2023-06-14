@@ -34,14 +34,9 @@ Configure the Home Assistant's Nord Pool integration and add it to `sensors.yaml
 remember to change the parameters for your location and preferred currency.
 
 ## Water heater
-In `input_numbers.yaml` add
-```yaml
-vvb_test:
-  name: vvb status for testing 
-  min: 0
-  max: 1
-```
-and in `sensors.yaml` add
+Since temperature sensors outside of the water heater is not completely accurate, we created virtual sensors using sensors' value to measure water heater's temperature. 
+
+In `sensors.yaml` add
 ```yaml
 - platform: template
   sensors:
@@ -80,16 +75,6 @@ and in `sensors.yaml` add
         (((max(0,(60-t1)) + max(0,(56-t2)) + max(0,(54-t3)) + max(0,(58-t4))) / 4)*300*4.18/3600)
         }}
       unit_of_measurement: "kWh"
-    vvb_soc:
-      friendly_name: VVB SOC
-      value_template: >-
-        {% set t1 = states('sensor.t_vvb_1') | float %}
-        {% set t2 = states('sensor.t_vvb_2') | float %}
-        {% set t3 = states('sensor.t_vvb_3') | float %}
-        {% set t4 = states('sensor.t_vvb_4') | float %}
-        {{
-        (((max(0, t1-30) + max(0,t2-30) + max(0, t3-30) + max(0, t4-30)) / 4 / (67-30))*100) | round(2)}}
-      unit_of_measurement: "percent"
 ```
 Also create three input booleans
 ```yaml
