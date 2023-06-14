@@ -4,100 +4,145 @@ import requests
 import hassapi as hass
 import numpy as np
 import datetime
-from math import sqrt
+from math import ceil
 import adbase as ad
 import json
+import pytz
+
 
 
 class VVBCode(hass.Hass, ad.ADBase):
+
     def initialize(self):
 
-        self.NORDPOOL_ID = 'sensor.nordpool_kwh_se3_sek_3_10_025' #  
+        self.NORDPOOL_ID = 'sensor.nordpool_kwh_se3_sek_3_10_025' # For getting Nord Pool prices
 
-        self.POWER = 3 # kW
-        self.VVB = 'switch.varmvattenberedare' # ID of the real water heater
-        self.VVB_TEST = 'input_number.vvb_test' # ID of the fake water heater, for testing
-        self.VVB_SOC = 'sensor.vvb_soc' # Id of vvbs state of charge
-        self.ENERGY_TO_FULL = 'sensor.vvb_energy_to_full' # Id of vvbs energy to full 
+        self.POWER = 3 # Power of vvb in kW
+        self.VVB = 'switch.varmvattenberedare' # Id of the real vvb
+        self.ENERGY_TO_FULL = 'sensor.vvb_energy_to_full' # Id of vvb's energy to full 
 
-        self.vvb_button1 = 'input_boolean.vvb_button1' # Buttons for the water heater window in HA
-        self.vvb_button2 = 'input_boolean.vvb_button2'
-        self.vvb_modell_button = 'input_boolean.vvb_model' # Button for turning of the model 
-        self.vvb_info1 = 'input_text.vvb_information1' 
+        self.vvb_button1 = 'input_boolean.vvb_knapp1' # Buttons for the vvb window in HA
+        self.vvb_button2 = 'input_boolean.vvb_knapp2' 
+        self.vvb_modell_button = 'input_boolean.vvb_modell' # Button for turning on/off the model 
+        self.vvb_info1 = 'input_text.vvb_information1' # For showing price informations in the HA UI
         self.vvb_info2 = 'input_text.vvb_information2'
+        self.vvb_schedule = 'input_datetime.vvb_schedule' # For scheduling
 
         self.vvb_times = "/config/appdaemon/logs/saved_vvb_times.json" # Where the run times are saved
+        self.vvb_scheduled_times = "/config/appdaemon/logs/scheduled_vvb_times.json" # For scheduling when to run vvb
 
-        # When turning on and off the buttons, updates the info text in water heater window 
+        # When turning on/off the buttons, updates the info text in vvb window 
         self.get_entity(self.vvb_button1).listen_state(self.vvb_info) 
         self.get_entity(self.vvb_button2).listen_state(self.vvb_info)
 
-        
-        self.run_hourly(self.vvb_on, datetime.time(hour=14, minute=0, second=0))
-        self.run_hourly(self.vvb_off, datetime.time(hour=14, minute=0, second=0))
-        self.run_hourly(self.vvb_info, datetime.time(hour=14, minute=0, second=0))
+        # Refresh the time right now
+        self.constants()
 
-        run_time = datetime.time(hour=17, minute=5, second=0)
-        self.run_daily(self.choose_run_time, run_time)
-        self.run_daily(self.vvb_info, run_time)
+        # Check if we should turn on/off vvb hourly
+        self.run_hourly(self.vvb_on, datetime.time(hour=19, minute=0, second=0))
+        self.run_hourly(self.vvb_off, datetime.time(hour=19, minute=0, second=0))
 
+        # Every hour, run choose_run_time
+        if self.get_state(self.VVB) == 'off':
+            self.run_hourly(self.choose_run_time, datetime.time(hour=19, minute=0, second=0))
+
+        # Check if we should turn on/off vvb hourly
+        self.run_hourly(self.vvb_on, datetime.time(hour=19, minute=0, second=0))
+        self.run_hourly(self.vvb_off, datetime.time(hour=19, minute=0, second=0))
+
+        # Check if we should turn on/off vvb minutely for scheduling
+        self.run_minutely(self.vvb_schedule_on, datetime.time(hour=19, minute=0, second=0))
+        self.run_minutely(self.vvb_schedule_off, datetime.time(hour=19, minute=0, second=0))
+
+        # Updates vvb info hourly
+        self.run_hourly(self.vvb_info, datetime.time(hour=19, minute=0, second=0))
+
+        # Check if Nord Pool API returned prices for the next day, if not we use a default time to run vvb
+        self.run_daily(self.check_nordpool, datetime.time(hour=1, minute=5, second=0))
+
+        # Turn on the first button and off the second button 
         if self.get_state(self.vvb_modell_button) == 'on':
-            self.run_daily(self.button1_on, run_time)
-            self.run_daily(self.button2_off, run_time)
+            self.run_daily(self.button1_on, datetime.time(hour=17, minute=5, second=0))
+            self.run_daily(self.button2_off, datetime.time(hour=17, minute=5, second=0))
 
-        # time = datetime.time(0, 0, 30) # Runs when seconds == 30
-        # self.adapi = self.get_ad_api()
-        # self.adapi.run_minutely(self.test_runs, time)
-        
-        #self.vvb_on()
-        #self.vvb_off()
-        #self.main()
-        #self.choose_run_time()
-        #self.vvb_info()
 
+        # Update the scheduling time when it's changed
+        self.get_entity(self.vvb_schedule).listen_state(self.vvb_schedule_save)
+
+
+
+    # Global variables
+    def constants(self):
+        self.hours_to_run = ceil(float(self.get_state(self.ENERGY_TO_FULL))/self.POWER)
+        self.now = datetime.datetime.now()
+        self.date = self.now.date()
+        self.year = self.now.year
+        self.month = self.now.month
+        self.day = self.now.day
+        self.hour = self.now.hour
+        self.minute = self.now.minute
+
+
+    # Returns a dicitonary of Nord Pool prices for today and maybe tomorrow (if published)
     def get_nordpool_price(self):
         nordPoolAPI = self.get_entity(self.NORDPOOL_ID).attributes
         bothRawDays = nordPoolAPI['raw_today'] + nordPoolAPI['raw_tomorrow']
         nordpool = {datetime.datetime.fromisoformat(hour['start']):hour['value'] for hour in bothRawDays}
         return nordpool
 
-    def cheapest_start_time(self, spot_prices, l):
-        today = datetime.datetime.now().day
-        nighttime = (20,10)
-        afternoontime = (10,18)
+
+    # Given the spot prices, calculate the total price to run vvb for l hours at each hour
+    def start_price(self, spot_prices, l):
         prices = list(spot_prices.values())
         hour_prices = list(spot_prices.items())
         run_prices = [(hour_prices[i][0],hour_prices[i+l-1][0] + datetime.timedelta(hours=1), sum(prices[i:i+l])) for i in range(len(prices)-l+1)]
-        
-        if len(spot_prices) > 24:
-            night = sorted([(start,end,cost) for start,end,cost in run_prices if ((20 <= start.hour <= 23 and today == start.day) or (0 <= start.hour <= 10 and today != start.day)) and ((20 <= end.hour <= 23 and today == end.day) or (0 <= end.hour <= 10 and today != end.day))], key = lambda x: x[2])[0]
-            afternoon = sorted([(start,end,cost) for start,end,cost in run_prices if (10 <= start.hour <= 18 and today != start.day) and (10 <= end.hour <= 18 and today != end.day)], key = lambda x: x[2])[0]
-        
+        return run_prices
+
+
+    # Chooses two cheapest time to run vvb
+    def cheapest_start_time(self, spot_prices, l):
+
+        self.constants()
+        run_prices = [(x[0], x[1], x[2]) for x in self.start_price(self.get_nordpool_price(),l)]
+
+        if len(self.get_nordpool_price()) > 24:
+            night = sorted(run_prices[20:35-l], key = lambda x: x[2])
+            afternoon = sorted(run_prices[34:43-l], key = lambda x: x[2])
+
         else: 
-            night = sorted([(start,end,cost) for start,end,cost in run_prices if 0 <= start.hour <= 10 and 0 <= end.hour <= 10], key = lambda x: x[2])[0]
-            afternoon = sorted([(start,end,cost) for start,end,cost in run_prices if 10 <= start.hour <= 18 and 10 <= end.hour <= 18], key = lambda x: x[2])[0]
-        
-        cheapest = sorted([night, afternoon], key = lambda x: x[2])
-        return cheapest
-    
+            night = sorted(run_prices[0:11-l], key=lambda x: x[2])
+            afternoon = sorted(run_prices[10:19-l], key=lambda x: x[2])
+
+        return sorted([night[0], afternoon[0]], key = lambda x: x[2])
+
+
+
+    # Write a json file
     def writeToFile(self, file:str, data:dict):
         with open(file, 'w', encoding='utf-8') as logfile:
-            self.log(f"The dictionary has been written: {data}")
+            #self.log(f"The dictionary has been written: {data}")
             logfile.write(json.dumps(data, indent=4, cls=DateTimeEncoder))
-    
+
+
+
+    # Read a json file 
     def readFromFile(self, file:str):
         with open(file, "r") as logfile:
             #self.log("File has been read!")
             return json.load(logfile)
 
+
+
+    # Choose two times to run vvb based on prices given by Nord Pool API and saves them in a json file
     def choose_run_time(self, ignore = "ignore this"):
-        hours_to_run = 3
-        current_time = datetime.datetime.now()
-        nordpool_prices = self.get_nordpool_price() 
-        valid_prices = {time:nordpool_prices[time] for time in nordpool_prices if (time.hour >= current_time.hour and time.day == current_time.day) or (time.day != current_time.day)}
-        cheapest = self.cheapest_start_time(valid_prices, hours_to_run)
+
+        self.constants()
+
+        if self.hours_to_run < 2:
+            self.hours_to_run = 2
+
+        cheapest = self.cheapest_start_time(self.get_nordpool_price(), self.hours_to_run)
         c1, c2 = cheapest[0], cheapest[1]
-        self.log("this is c1" + str(c1))
         start_time1, end_time1, cost_to_run1 = c1[0], c1[1], c1[2]
         start_time2, end_time2, cost_to_run2 = c2[0], c2[1], c2[2]
         self.writeToFile(self.vvb_times, {
@@ -105,21 +150,54 @@ class VVBCode(hass.Hass, ad.ADBase):
                                         "second":{"start" : start_time2,"end" : end_time2,"cost" : cost_to_run2}
                                         })
         self.log('These times have been saved: ' + str({"first": {"start" : start_time1,"end" : end_time1,"cost" : cost_to_run1}, "second":{"start" : start_time2,"end" : end_time2,"cost" : cost_to_run2}}))
-    
-    def vvb_info(self,a="a",b="b",c="c",d="d",e="e"):
+        self.vvb_info()
+
+
+
+    # Checks if Nord Pool API has given the prices for tomorrow, if not we use a default time 
+    def check_nordpool(self, ignore = "ignore this"):
+
+        self.constants()
+        
+        check = list(self.get_nordpool_price().items())[-1][0].date()
+
+        if check != self.date + datetime.timedelta(days=1):
+            cheap_night_start_time = 2
+            cheap_lunch_start_time = 13
+
+            if self.hours_to_run < 2:
+                self.hours_to_run = 2
+
+            start_time1 = datetime.datetime(self.year, self.month, self.day+1, cheap_night_start_time)
+            start_time2 = datetime.datetime(self.year, self.month, self.day+1, cheap_lunch_start_time)
+
+            end_time1 = datetime.datetime(self.year, self.month, self.day+1, cheap_night_start_time + self.hours_to_run)
+            end_time2 = datetime.datetime(self.year, self.month, self.day+1, cheap_lunch_start_time + self.hours_to_run)
+
+            self.writeToFile(self.vvb_times, {
+                                            "first": {"start" : start_time1,"end" : end_time1,"cost" : "VET EJ"}, 
+                                            "second":{"start" : start_time2,"end" : end_time2,"cost" : "VET EJ"}
+                                            })
+                                            
+            self.vvb_info()
+
+
+
+    # For the text in vvb window
+    def vvb_info(self, a="a", b="b", c="c", d="d", e="e"):
+
+        self.constants()
 
         info = self.readFromFile(self.vvb_times)
-        start1 = datetime.datetime.fromisoformat(info["first"]["start"])
-        end1 = datetime.datetime.fromisoformat(info["second"]["start"])
-        start2 = datetime.datetime.fromisoformat(info["first"]["end"])
-        end2 = datetime.datetime.fromisoformat(info["second"]["end"])
 
-        now = datetime.datetime.now()
-        date_now = now.date()
+        start1 = datetime.datetime.fromisoformat(info["first"]["start"])
+        start2 = datetime.datetime.fromisoformat(info["first"]["end"])
+
+        end1 = datetime.datetime.fromisoformat(info["second"]["start"])
+        end2 = datetime.datetime.fromisoformat(info["second"]["end"])
 
         start_date1 = start1.date()
         start_date2 = end1.date()
-
         start_hour1 = start1.hour
         start_hour2 = end1.hour
         end_hour1 = start2.hour
@@ -128,87 +206,73 @@ class VVBCode(hass.Hass, ad.ADBase):
         cost1 = info["first"]["cost"]
         cost2 = info["second"]["cost"]
 
-        if date_now == start_date1:
+        if self.date == start_date1:
             dag1 = 'Idag'
-        elif date_now + datetime.timedelta(days=1) == start_date1:
+        elif self.date + datetime.timedelta(days=1) == start_date1:
             dag1 = 'Imorgon'
-        elif date_now - datetime.timedelta(days=1) == start_date1:
+        elif self.date - datetime.timedelta(days=1) == start_date1:
             dag1 = 'Igår'
         else:
             dag1 = str(start_date1)
 
-        if date_now == start_date2:
+        if self.date == start_date2:
             dag2 = 'Idag'
-        elif date_now + datetime.timedelta(days=1) == start_date2:
+        elif self.date + datetime.timedelta(days=1) == start_date2:
             dag2 = 'Imorgon'
-        elif date_now - datetime.timedelta(days=1) == start_date2:
+        elif self.date - datetime.timedelta(days=1) == start_date2:
             dag2 = 'Igår'
         else: 
             dag2 = str(start_date2)
 
-        if start_hour1 < 10: start_hour1 = '0'+str(start_hour1)
-        if end_hour1 < 10: end_hour1 = '0'+str(end_hour1)
-        if start_hour2 < 10: start_hour2 = '0'+str(start_hour2)
-        if end_hour2 < 10: end_hour2 = '0'+str(end_hour2)
+        if start_hour1 < 10: start_hour1 = '0' + str(start_hour1)
+        if end_hour1 < 10: end_hour1 = '0' + str(end_hour1)
+        if start_hour2 < 10: start_hour2 = '0' + str(start_hour2)
+        if end_hour2 < 10: end_hour2 = '0' + str(end_hour2)
         
-        self.set_state(self.vvb_button1, attributes={"friendly_name": f"{dag1} kl. {start_hour1}.00 till {end_hour1}.00 kostar {str(round(cost1,2)).replace('.',',')} kr"})
-        self.set_state(self.vvb_button2, attributes={"friendly_name": f"{dag2} kl. {start_hour2}.00 till {end_hour2}.00 kostar {str(round(cost2,2)).replace('.',',')} kr"})
-        
+
+        if cost1 == "VET EJ" or cost2 == "VET EJ":
+            self.set_state(self.vvb_button1, attributes={"friendly_name": f"{dag1} kl. {start_hour1} till {end_hour1} kostar {cost1} kr"})
+            self.set_state(self.vvb_button2, attributes={"friendly_name": f"{dag2} kl. {start_hour2} till {end_hour2} kostar {cost2} kr"})
+        else:
+            self.set_state(self.vvb_button1, attributes={"friendly_name": f"{dag1} kl. {start_hour1} till {end_hour1} kostar {str(round(cost1,2)).replace('.',',')} kr"})
+            self.set_state(self.vvb_button2, attributes={"friendly_name": f"{dag2} kl. {start_hour2} till {end_hour2} kostar {str(round(cost2,2)).replace('.',',')} kr"})
+
         self.log("VVB info has been updated")
 
 
-    def test_runs(self, ignore = "ignore this"):
-        self.log("The current state of VVB is: " + self.get_state(self.VVB))
-        self.log("The current state of button 1 is: " + self.get_state(self.vvb_button1))
-        self.log("The current state of button 2 is: " + self.get_state(self.vvb_button2))
-        self.log("The current state modell button is: " + self.get_state(self.vvb_modell_button))
-        self.log("The start time is: " + str(datetime.datetime.fromisoformat(self.readFromFile(self.vvb_times)["first"]["start"])))
-        self.log("The end time is: " + str(datetime.datetime.fromisoformat(self.readFromFile(self.vvb_times)["first"]["end"])))
-        self.log("The start time is: " + str([datetime.datetime.fromisoformat(self.readFromFile(self.vvb_times)["first"]["start"])]))
-        self.log("The end time is: " + str([datetime.datetime.fromisoformat(self.readFromFile(self.vvb_times)["first"]["end"])]))
-        self.log("Testing stuff")
 
+    # For turning vvb on 
     def vvb_on(self, ignore = "ignore this"):
+
+        self.constants()
 
         if self.get_state(self.vvb_modell_button) == 'on':
             run_time1 = datetime.datetime.fromisoformat(self.readFromFile(self.vvb_times)["first"]["start"])
             run_time2 = datetime.datetime.fromisoformat(self.readFromFile(self.vvb_times)["second"]["start"])
-            now = datetime.datetime.now()
-            date_now = now.date()
-            hour_now = now.hour
 
             run_time1_date = run_time1.date()
             run_time1_hour = run_time1.hour
             
             run_time2_date = run_time2.date()
             run_time2_hour = run_time2.hour
-            
-            self.log("date now: " + str(date_now))
-            self.log("hour now: " + str(hour_now))
-            self.log("run time 1 date: " + str(run_time1_date))
-            self.log("run time 1 hour: " + str(run_time1_hour))
-            self.log("run time 2 date: " + str(run_time2_date))
-            self.log("run time 2 hour: " + str(run_time2_hour))
 
-            if self.get_state(self.vvb_button1) == 'on' and date_now == run_time1_date and hour_now == run_time1_hour:
+            if self.get_state(self.vvb_button1) == 'on' and self.date == run_time1_date and self.hour == run_time1_hour:
                 self.turn_on(self.VVB)
-                self.set_state(self.VVB_TEST, state="1.0")
                 self.log("VVB has been turned on")
 
-            if self.get_state(self.vvb_button2) == 'on'and date_now == run_time2_date and hour_now == run_time2_hour:
+            if self.get_state(self.vvb_button2) == 'on' and self.date == run_time2_date and self.hour == run_time2_hour:
                 self.turn_on(self.VVB)
-                self.set_state(self.VVB_TEST, state="1.0")
                 self.log("VVB has been turned on")
 
 
+
+    # For turning vvb off 
     def vvb_off(self, ignore = "just ignore this"):
+
+        self.constants()
 
         end_time1 = datetime.datetime.fromisoformat(self.readFromFile(self.vvb_times)["first"]["end"])
         end_time2 = datetime.datetime.fromisoformat(self.readFromFile(self.vvb_times)["second"]["end"])
-
-        now = datetime.datetime.now()
-        date_now = now.date()
-        hour_now = now.hour
 
         end_time1_date = end_time1.date()
         end_time1_hour = end_time1.hour
@@ -216,19 +280,53 @@ class VVBCode(hass.Hass, ad.ADBase):
         end_time2_date = end_time2.date()
         end_time2_hour = end_time2.hour
 
-        self.log("date now: "+ str(date_now))
-        self.log("hour now: "+ str(hour_now))
-        self.log("end time date 1: "+ str(end_time1_date))
-        self.log("end time hour 1: "+ str(end_time1_hour))
-        self.log("end time date 2: "+ str(end_time2_date))
-        self.log("end time hour 2: "+ str(end_time2_hour))
-
         if self.get_state(self.VVB) == 'on': 
-            if (date_now == end_time1_date and hour_now == end_time1_hour) or (date_now == end_time2_date and hour_now == end_time2_hour):
+            if (self.date == end_time1_date and self.hour == end_time1_hour) or (self.date == end_time2_date and self.hour == end_time2_hour):
                 self.turn_off(self.VVB)
-                self.set_state(self.VVB_TEST, state="0.0")
                 self.log("VVB has been turned off")
-    
+
+
+
+    # For scheduling
+    def vvb_schedule_save(self, a="a", b="b", c="c", d="d", e="e"):
+        self.writeToFile(self.vvb_scheduled_times, {"schedule_start": self.get_state(self.vvb_schedule), "schedule_end": "2023-01-01 00:00:00"})
+
+
+
+    # For turning scheduled time on 
+    def vvb_schedule_on(self, ignore = "just ignore this"):
+
+        self.constants()
+
+        start_time = datetime.datetime.fromisoformat(self.readFromFile(self.vvb_scheduled_times)["schedule_start"])
+        start_time_date = start_time.date()
+        start_time_hour = start_time.hour
+        start_time_minute = start_time.minute
+
+        if self.date == start_time_date and self.hour == start_time_hour and self.minute == start_time_minute:
+            end_time = start_time + datetime.timedelta(hours = self.hours_to_run) 
+            self.writeToFile(self.vvb_scheduled_times, {"schedule_start": start_time, "schedule_end": end_time})
+            self.turn_on(self.VVB)
+            self.log("VVB has been turned on")
+
+
+
+    # For turning scheduled time off
+    def vvb_schedule_off(self, ignore = "just ignore this"):
+        
+        self.constants()
+
+        end_time = datetime.datetime.fromisoformat(self.readFromFile(self.vvb_scheduled_times)["schedule_end"])
+        end_time_date = end_time.date()
+        end_time_hour = end_time.hour
+        end_time_minute = end_time.minute
+
+        if self.date == end_time_date and self.hour == end_time_hour and self.minute_now == end_time_minute:
+            self.turn_off(self.VVB)
+            self.log("VVB has been turned off")
+
+
+
     def button1_on(self, ignore = "just ignore this"):
         self.set_state(self.vvb_button1, state="on")
         #self.log("Button 1 has been turned on")
@@ -251,6 +349,26 @@ class DateTimeEncoder(json.JSONEncoder):
         def default(self, obj):
             if isinstance(obj, (datetime.date, datetime.datetime)):
                 return obj.isoformat()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
